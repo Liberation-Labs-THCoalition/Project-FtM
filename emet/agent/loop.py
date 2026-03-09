@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -130,6 +131,9 @@ class AgentConfig:
     generate_graph: bool = True    # Generate Cytoscape graph at conclusion
     # Demo
     demo_mode: bool = False        # Use bundled demo data when sources return empty
+    # Output
+    auto_pdf: bool = True          # Auto-generate PDF report after investigation
+    output_dir: str = ""           # Directory for PDF/export output (default: memory_dir or cwd)
 
 
 # ---------------------------------------------------------------------------
@@ -934,6 +938,49 @@ Rules:
                     result=result,
                     decision_source="report_phase",
                 )
+
+            # Auto-export PDF if configured
+            if self._config.auto_pdf and session.report:
+                try:
+                    from emet.export.pdf import PDFReport
+                    from emet.export.markdown import InvestigationReport
+
+                    all_entities = []
+                    for f in session.findings:
+                        all_entities.extend(f.entities)
+
+                    report_data = InvestigationReport(
+                        title=session.goal,
+                        summary=session.report,
+                        entities=all_entities,
+                        data_sources=[
+                            {"name": t["tool"], "query": str(t.get("args", {}))}
+                            for t in session.tool_history
+                        ],
+                    )
+
+                    out_dir = Path(
+                        self._config.output_dir
+                        or self._config.memory_dir
+                        or "investigations"
+                    ) / "reports"
+                    out_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Sanitize filename from goal
+                    safe_name = "".join(
+                        c if c.isalnum() or c in " -_" else "_"
+                        for c in session.goal[:60]
+                    ).strip().replace(" ", "_")
+                    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+                    pdf_path = out_dir / f"{safe_name}_{ts}.pdf"
+
+                    pdf = PDFReport()
+                    pdf.generate(report=report_data, output_path=str(pdf_path))
+
+                    session._pdf_path = str(pdf_path)
+                    session.record_reasoning(f"PDF report saved: {pdf_path}")
+                except Exception as exc:
+                    logger.debug("Auto-PDF export failed: %s", exc)
 
             # Record cost summary if LLM was used
             if self._cost_tracker:
