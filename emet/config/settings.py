@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "all-mpnet-base-v2"
 
     # --- LLM Provider ---
-    LLM_PROVIDER: Literal["ollama", "anthropic", "stub"] = "ollama"
+    LLM_PROVIDER: Literal["ollama", "anthropic", "openai_compat", "stub"] = "ollama"
     LLM_FALLBACK_ENABLED: bool = True
 
     # --- Ollama (local models — default) ---
@@ -38,6 +38,16 @@ class Settings(BaseSettings):
         "powerful": "qwen3:14b",
     }
     OLLAMA_TIMEOUT: float = 120.0
+
+    # --- OpenAI-compatible endpoint (vLLM, llama-server, LM Studio, etc.) ---
+    OPENAI_COMPAT_BASE_URL: str = "http://localhost:11434/v1"
+    OPENAI_COMPAT_API_KEY: str = ""
+    OPENAI_COMPAT_MODELS: dict[str, str] = {
+        "fast": "llama3.2:3b",
+        "balanced": "mistral:7b",
+        "powerful": "deepseek-r1:14b",
+    }
+    OPENAI_COMPAT_TIMEOUT: float = 120.0
 
     # --- LLM Keys (optional — used as fallback or when provider=anthropic) ---
     ANTHROPIC_API_KEY: str = ""

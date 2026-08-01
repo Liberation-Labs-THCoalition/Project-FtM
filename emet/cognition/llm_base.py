@@ -1,11 +1,12 @@
 """LLM client abstraction layer.
 
 Defines the provider-agnostic interface that all LLM backends implement.
-Emet supports three providers in cascading fallback order:
+Emet supports four providers in cascading fallback order:
 
-    1. Ollama  — local models, default, zero cost, full privacy
-    2. Anthropic — Claude API, used when local models unavailable or insufficient
-    3. Stub    — deterministic canned responses for testing
+    1. Ollama       — local models via native API, default, zero cost, full privacy
+    2. OpenAI-compat — any /v1/chat/completions endpoint (vLLM, llama-server, etc.)
+    3. Anthropic    — Claude API, used when local models unavailable or insufficient
+    4. Stub         — deterministic canned responses for testing
 
 The active provider is selected by ``LLM_PROVIDER`` in settings and can
 auto-fallback through the chain when ``LLM_FALLBACK_ENABLED`` is true.
@@ -32,6 +33,7 @@ class LLMProvider(str, enum.Enum):
 
     OLLAMA = "ollama"
     ANTHROPIC = "anthropic"
+    OPENAI_COMPAT = "openai_compat"
     STUB = "stub"
 
 

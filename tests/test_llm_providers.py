@@ -391,6 +391,10 @@ class TestLLMFactory:
             mock_settings.OLLAMA_HOST = "http://localhost:11434"
             mock_settings.OLLAMA_MODELS = {"fast": "test", "balanced": "test", "powerful": "test"}
             mock_settings.OLLAMA_TIMEOUT = 30.0
+            mock_settings.OPENAI_COMPAT_BASE_URL = "http://localhost:11434/v1"
+            mock_settings.OPENAI_COMPAT_API_KEY = ""
+            mock_settings.OPENAI_COMPAT_MODELS = {"fast": "test", "balanced": "test", "powerful": "test"}
+            mock_settings.OPENAI_COMPAT_TIMEOUT = 30.0
             mock_settings.DEPLOYMENT_TIER = "sprout"
             mock_settings.MODEL_ROUTING = {"haiku": "test", "sonnet": "test", "opus": "test"}
 
@@ -410,6 +414,10 @@ class TestLLMFactory:
             mock_settings.OLLAMA_HOST = "http://localhost:11434"
             mock_settings.OLLAMA_MODELS = {"fast": "test", "balanced": "test", "powerful": "test"}
             mock_settings.OLLAMA_TIMEOUT = 30.0
+            mock_settings.OPENAI_COMPAT_BASE_URL = "http://localhost:11434/v1"
+            mock_settings.OPENAI_COMPAT_API_KEY = ""
+            mock_settings.OPENAI_COMPAT_MODELS = {"fast": "test", "balanced": "test", "powerful": "test"}
+            mock_settings.OPENAI_COMPAT_TIMEOUT = 30.0
             mock_settings.DEPLOYMENT_TIER = "sprout"
             mock_settings.MODEL_ROUTING = {"haiku": "test", "sonnet": "test", "opus": "test"}
 
@@ -417,10 +425,11 @@ class TestLLMFactory:
             client = create_llm_client_sync()
 
             assert isinstance(client, FallbackLLMClient)
-            # Chain: Ollama → Stub (no Anthropic key)
-            assert len(client._clients) == 2
+            # Chain: Ollama → OpenAI-compat → Stub (no Anthropic key)
+            assert len(client._clients) == 3
             assert client._clients[0].provider == LLMProvider.OLLAMA
-            assert client._clients[1].provider == LLMProvider.STUB
+            assert client._clients[1].provider == LLMProvider.OPENAI_COMPAT
+            assert client._clients[2].provider == LLMProvider.STUB
 
 
 # ====================================================================

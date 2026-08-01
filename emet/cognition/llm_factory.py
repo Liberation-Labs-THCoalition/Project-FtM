@@ -4,7 +4,7 @@ Reads ``LLM_PROVIDER`` from settings and instantiates the appropriate
 client.  When ``LLM_FALLBACK_ENABLED`` is true (default), failures
 cascade through the provider chain:
 
-    Ollama → Anthropic → Stub
+    Ollama → OpenAI-compat → Anthropic → Stub
 
 This ensures Emet always works — degraded but functional — even when
 no LLM backend is available.
@@ -29,6 +29,7 @@ from emet.cognition.llm_base import (
 )
 from emet.cognition.llm_anthropic import AnthropicClient
 from emet.cognition.llm_ollama import OllamaClient
+from emet.cognition.llm_openai_compat import OpenAICompatClient
 from emet.cognition.llm_stub import StubClient
 from emet.cognition.model_router import CostTracker, ModelRouter
 from emet.config.settings import settings
@@ -158,6 +159,20 @@ def _build_anthropic_client(
         return None
 
 
+def _build_openai_compat_client() -> OpenAICompatClient | None:
+    """Try to build an OpenAI-compatible client. Returns None if config is absent."""
+    try:
+        return OpenAICompatClient(
+            base_url=settings.OPENAI_COMPAT_BASE_URL,
+            api_key=settings.OPENAI_COMPAT_API_KEY,
+            models=dict(settings.OPENAI_COMPAT_MODELS),
+            timeout=settings.OPENAI_COMPAT_TIMEOUT,
+        )
+    except Exception as e:
+        logger.debug("Cannot build OpenAI-compat client: %s", e)
+        return None
+
+
 def _build_stub_client() -> StubClient:
     """Stub client is always available."""
     return StubClient()
@@ -193,6 +208,8 @@ def create_llm_client_sync(
     primary: LLMClient | None = None
     if provider_enum == LLMProvider.OLLAMA:
         primary = _build_ollama_client()
+    elif provider_enum == LLMProvider.OPENAI_COMPAT:
+        primary = _build_openai_compat_client()
     elif provider_enum == LLMProvider.ANTHROPIC:
         primary = _build_anthropic_client(cost_tracker)
     elif provider_enum == LLMProvider.STUB:
@@ -211,6 +228,19 @@ def create_llm_client_sync(
 
     if provider_enum == LLMProvider.OLLAMA:
         chain.append(primary)
+        openai_compat = _build_openai_compat_client()
+        if openai_compat:
+            chain.append(openai_compat)
+        anthropic = _build_anthropic_client(cost_tracker)
+        if anthropic:
+            chain.append(anthropic)
+        chain.append(_build_stub_client())
+
+    elif provider_enum == LLMProvider.OPENAI_COMPAT:
+        chain.append(primary)
+        ollama = _build_ollama_client()
+        if ollama:
+            chain.append(ollama)
         anthropic = _build_anthropic_client(cost_tracker)
         if anthropic:
             chain.append(anthropic)
@@ -221,6 +251,9 @@ def create_llm_client_sync(
         ollama = _build_ollama_client()
         if ollama:
             chain.append(ollama)
+        openai_compat = _build_openai_compat_client()
+        if openai_compat:
+            chain.append(openai_compat)
         chain.append(_build_stub_client())
 
     elif provider_enum == LLMProvider.STUB:
